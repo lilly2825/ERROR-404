@@ -2,8 +2,7 @@ from trust_engine import evaluate_event
 import requests
 
 
-FIREBASE_URL = "https://truthmesh-hackathon-default-rtdb.firebaseio.com"
-
+FIREBASE_URL = "https://truthmesh-5c342-default-rtdb.asia-southeast1.firebasedatabase.app"
 
 def make_decision(trust_result, command):
 
@@ -60,8 +59,9 @@ def make_decision(trust_result, command):
 # ==========================================
 
 response = requests.get(
-    f"{FIREBASE_URL}/sensors.json"
+    f"{FIREBASE_URL}/devices.json"
 )
+
 
 sensor_data = response.json()
 
@@ -73,16 +73,42 @@ print(sensor_data)
 # 2. TRUST ENGINE
 # ==========================================
 
+door_state = sensor_data["door_sensor"]["state"]
+motion = sensor_data["pir_motion"]["motion"]
+
+# Temporary camera proxy:
+# Her Firebase currently doesn't have the potentiometer value.
+# We'll add/use that later.
+camera_value = 50
+
 trust_result = evaluate_event(
-    door_state=sensor_data["door"],
-    motion=sensor_data["motion"],
-    camera_value=sensor_data["camera_value"],
+    door_state=door_state,
+    motion=motion,
+    camera_value=camera_value,
     security_state="SECURED"
 )
 
 print("\nTrust Result:")
 print(trust_result)
+# -----------------------------------------
+# WRITE TRUST RESULT TO FIREBASE
+# -----------------------------------------
 
+trust_url = f"{FIREBASE_URL}/trust.json"
+
+requests.patch(
+    trust_url,
+    json={
+        "event_status": trust_result["event_status"],
+        "door_score": trust_result["door_trust"],
+        "motion_score": trust_result["motion_trust"],
+        "camera_score": trust_result["camera_trust"],
+        "conflict": trust_result["conflict"],
+        "suspicious_device": trust_result["suspicious_device"]
+    }
+)
+
+print("\nTrust data written to Firebase.")
 
 # ==========================================
 # 3. COMMAND
